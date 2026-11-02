@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { createMediaStore, validMedia } from './media.mjs';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
@@ -14,6 +15,7 @@ mkdirSync(dataDir, { recursive: true });
 const db = new DatabaseSync(path.join(dataDir, 'phi.sqlite'));
 db.exec(`PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS config (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL); CREATE TABLE IF NOT EXISTS posts (id TEXT PRIMARY KEY, value TEXT NOT NULL);`);
 db.exec('CREATE TABLE IF NOT EXISTS widget_cache (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+const mediaStore=createMediaStore(db);
 const defaults = { appName: 'Phi', name: 'Your name', greetingName: 'there', handle: 'username', bio: '', location: '', website: '', avatar: '', banner: '', theme: 'dark', units: 'celsius', weatherEnabled: false, introEnabled: true, joined: new Date().toISOString() };
 if (!db.prepare('SELECT id FROM config').get()) db.prepare('INSERT INTO config VALUES (1, ?)').run(JSON.stringify(defaults));
 const widgetDefaults={githubPlacement:'timeline',obsidianPlacement:'timeline',calendarPlacement:'timeline',githubEnabled:false,githubUsername:'',obsidianEnabled:false,obsidianVault:'',calendarEnabled:false,calendarSources:[],calendarTitle:'Calendar',calendarTimezone:'UTC'};
@@ -83,7 +85,7 @@ export const server = http.createServer(async (req, res) => {
   const send = (status, value) => { res.writeHead(status, { 'Content-Type':'application/json', 'Cache-Control':'no-store' }); res.end(JSON.stringify(value)); };
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
-  res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self' https://api.open-meteo.com; frame-src https://www.youtube-nocookie.com https://open.spotify.com https://player.vimeo.com https://w.soundcloud.com https://calendar.google.com; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
+  res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self' https://api.open-meteo.com; frame-src https://www.youtube-nocookie.com https://open.spotify.com https://player.vimeo.com https://w.soundcloud.com https://calendar.google.com; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
   try {
     const host = req.headers.host || '';
     if (!/^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(host)) return send(403, {error:'Phi only accepts localhost requests.'});
@@ -113,6 +115,14 @@ export const server = http.createServer(async (req, res) => {
       const c=config();if(!c.obsidianEnabled)return send(200,{disabled:true});
       try{if(!graphPending||graphPending.path!==c.obsidianVault){const promise=readVaultGraph(c.obsidianVault);graphPending={path:c.obsidianVault,promise};promise.finally(()=>{if(graphPending?.promise===promise)graphPending=null}).catch(()=>{})}return send(200,await graphPending.promise)}catch(e){return send(400,{error:e.message})}
     }
+    if(url.pathname==='/api/media'&&req.method==='GET')return send(200,mediaStore.list());
+    if(url.pathname==='/api/media'&&req.method==='POST')return send(201,mediaStore.save(await body(req)));
+    const mediaMatch=url.pathname.match(/^\/api\/media\/([a-f0-9-]+)$/);
+    if(mediaMatch&&['PUT','DELETE'].includes(req.method)){
+      check(mediaStore.get(mediaMatch[1]),'Media entry not found.');
+      if(req.method==='DELETE'){mediaStore.remove(mediaMatch[1]);return send(200,{ok:true});}
+      return send(200,mediaStore.save(await body(req),mediaMatch[1]));
+    }
     if (url.pathname === '/api/config' && req.method === 'PUT') { const c = validConfig(await body(req)); db.prepare('UPDATE config SET value=? WHERE id=1').run(JSON.stringify(c)); return send(200, c); }
     if (url.pathname === '/api/posts' && req.method === 'POST') { const p = {...validPost(await body(req)), id:randomUUID(), createdAt:new Date().toISOString()}; db.prepare('INSERT INTO posts VALUES (?,?)').run(p.id,JSON.stringify(p)); return send(201,p); }
     const match = url.pathname.match(/^\/api\/posts\/([a-f0-9-]+)$/);
@@ -121,11 +131,13 @@ export const server = http.createServer(async (req, res) => {
       if (req.method === 'DELETE') { db.prepare('DELETE FROM posts WHERE id=?').run(match[1]); return send(200,{ok:true}); }
       const p = {...JSON.parse(row.value), ...validPost(await body(req))}; db.prepare('UPDATE posts SET value=? WHERE id=?').run(JSON.stringify(p),match[1]); return send(200,p);
     }
-    if (url.pathname === '/api/export' && req.method === 'GET') { res.setHeader('Content-Disposition','attachment; filename="phi-backup.json"'); return send(200,{version:1,exportedAt:new Date().toISOString(),config:config(),posts:posts()}); }
+    if (url.pathname === '/api/export' && req.method === 'GET') { res.setHeader('Content-Disposition','attachment; filename="phi-backup.json"'); return send(200,{version:1,exportedAt:new Date().toISOString(),config:config(),posts:posts(),media:mediaStore.list()}); }
     if (url.pathname === '/api/import' && req.method === 'POST') {
       const b = await body(req); check(b.version===1 && Array.isArray(b.posts) && b.posts.length<=10000,'Invalid Phi backup.');
       const c = validConfig(b.config || {}); if (b.config?.joined && Number.isFinite(new Date(b.config.joined).getTime())) c.joined=new Date(b.config.joined).toISOString(); const incoming = b.posts.map(p => ({...validPost(p),id:randomUUID(),createdAt:new Date().toISOString()}));
-      db.exec('BEGIN'); try { db.prepare('UPDATE config SET value=? WHERE id=1').run(JSON.stringify(c)); db.exec('DELETE FROM posts'); const stmt=db.prepare('INSERT INTO posts VALUES (?,?)'); for (const p of incoming) stmt.run(p.id,JSON.stringify(p)); db.exec('COMMIT'); } catch(e) { db.exec('ROLLBACK'); throw e; }
+      check(b.media===undefined||(Array.isArray(b.media)&&b.media.length<=10000),'Invalid media backup.');
+      const incomingMedia=(b.media||[]).map(validMedia);
+      db.exec('BEGIN'); try { db.prepare('UPDATE config SET value=? WHERE id=1').run(JSON.stringify(c)); db.exec('DELETE FROM posts'); const stmt=db.prepare('INSERT INTO posts VALUES (?,?)'); for (const p of incoming) stmt.run(p.id,JSON.stringify(p)); mediaStore.replace(incomingMedia); db.exec('COMMIT'); } catch(e) { db.exec('ROLLBACK'); throw e; }
       return send(200,{ok:true});
     }
     if (url.pathname.startsWith('/api/')) return send(404,{error:'Not found.'});

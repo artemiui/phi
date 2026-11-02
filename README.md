@@ -6,9 +6,9 @@ A local personal timeline with text, photos, math, calendars, GitHub contributio
 
 Screenshots show my personal setup. Blog sharing is a private customization.
 
-![Personal timeline](docs/screenshots/personal-timeline-16x9.jpg)
-
-![Personal Log](docs/screenshots/personal-log-16x9.jpg)
+| Welcome | Timeline | Log |
+| --- | --- | --- |
+| ![Personal welcome screen](docs/screenshots/personal-welcome.png) | ![Personal timeline](docs/screenshots/personal-timeline-16x9.jpg) | ![Personal Log](docs/screenshots/personal-log-16x9.jpg) |
 
 ## Setup
 

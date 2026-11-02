@@ -4,19 +4,31 @@ export function ratingControl(name,label,value=''){
 }
 export function setRating(group,value){
   const rating=Number(value)||0;group.querySelector('input').value=rating?rating.toFixed(1):'';
-  group.querySelector('[data-rating-output]').textContent=rating?rating+(group.dataset.ratingControl==='minimumRating'?'+':' / 5'):(group.dataset.ratingControl==='minimumRating'?'Any':'Unrated');
   group.querySelector('[data-rating-clear]').hidden=!rating;
+  paintRating(group,rating);
+  for(const button of group.querySelectorAll('[data-rating-star]'))button.setAttribute('aria-pressed',String(rating>0&&Math.ceil(rating)===Number(button.dataset.ratingStar)));
+}
+function paintRating(group,rating){
+  group.querySelector('[data-rating-output]').textContent=rating?rating+(group.dataset.ratingControl==='minimumRating'?'+':' / 5'):(group.dataset.ratingControl==='minimumRating'?'Any':'Unrated');
   for(const button of group.querySelectorAll('[data-rating-star]')){
     const n=Number(button.dataset.ratingStar),filled=Math.max(0,Math.min(1,rating-(n-1)));
     button.querySelector('.rating-fill').style.clipPath=`inset(0 ${100-filled*100}% 0 0)`;
-    button.setAttribute('aria-pressed',String(rating>0&&Math.ceil(rating)===n));
   }
 }
+export function ratingAtPosition(starValue,clientX,left,width){return Number(starValue)-(clientX<left+width/2?.5:0);}
 export function bindRating(group,onChange){
   const change=value=>{setRating(group,value);onChange(group.querySelector('input').value);};
   setRating(group,group.querySelector('input').value);
+  const restore=()=>paintRating(group,Number(group.querySelector('input').value)||0);
+  group.querySelector('.rating-actions').onpointerleave=restore;
+  group.querySelector('.rating-actions').onpointercancel=restore;
   for(const button of group.querySelectorAll('[data-rating-star]')){
-    button.onclick=event=>{const box=button.getBoundingClientRect();change(Number(button.dataset.ratingStar)-(event.detail&&event.clientX<box.x+box.width/2 ? .5 : 0));};
+    const pointedRating=event=>{const box=button.getBoundingClientRect();return ratingAtPosition(button.dataset.ratingStar,event.clientX,box.x,box.width);};
+    button.onpointermove=button.onpointerenter=event=>{
+      if(event.pointerType==='touch')return;
+      const value=pointedRating(event);paintRating(group,value);button.title=`Select ${value} ${value===1?'star':'stars'}`;
+    };
+    button.onclick=event=>change(event.detail?pointedRating(event):Number(button.dataset.ratingStar));
     button.onkeydown=event=>{
       if(['ArrowLeft','ArrowDown','ArrowRight','ArrowUp','Home','End'].includes(event.key)){
         event.preventDefault();const old=Number(group.querySelector('input').value)||0;

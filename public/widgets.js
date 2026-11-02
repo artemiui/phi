@@ -1,3 +1,4 @@
+import {formatMediaDate} from './media-sort.js';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let activeKey='',configuration=null;
 const sidebarScreen=window.matchMedia('(min-width: 1181px)');
@@ -5,7 +6,7 @@ sidebarScreen.addEventListener('change',placeWidgets);
 function placeWidgets(){
   if(!configuration)return;
   const timeline=document.querySelector('#timeline-widgets'),sidebar=document.querySelector('#sidebar-widgets');
-  for(const id of ['calendar','github','obsidian']){
+  for(const id of ['lastmedia','calendar','github','obsidian']){
     const widget=document.querySelector('#'+id+'-widget');
     if(widget)(sidebarScreen.matches&&configuration[id+'Placement']==='sidebar'?sidebar:timeline).append(widget);
   }
@@ -15,19 +16,20 @@ function placeWidgets(){
 const refreshGlyph='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M20 12a8 8 0 1 0-2 6"/></svg>';
 export function configureWidgets(config) {
   configuration=config;
-  const key=JSON.stringify([config.githubEnabled,config.githubUsername,config.obsidianEnabled,config.obsidianVault,config.calendarEnabled,config.calendarSources,config.calendarTitle,config.calendarTimezone]);
+  const key=JSON.stringify([config.lastmediaEnabled,config.githubEnabled,config.githubUsername,config.obsidianEnabled,config.obsidianVault,config.calendarEnabled,config.calendarSources,config.calendarTitle,config.calendarTimezone]);
   if(key===activeKey){placeWidgets();return;}
   activeKey=key;
   const root=document.querySelector('#timeline-widgets');
   document.querySelector('#sidebar-widgets').replaceChildren();
-  root.innerHTML=`${config.calendarEnabled?widgetShell('calendar',config.calendarTitle||'Calendar',config.calendarTimezone||'UTC'):''}${config.githubEnabled?widgetShell('github','GitHub contributions','@'+config.githubUsername):''}${config.obsidianEnabled?widgetShell('obsidian','Your connected thoughts','Obsidian graph'):''}`;
+  root.innerHTML=`${config.lastmediaEnabled!==false?widgetShell('lastmedia','Latest media','From your Log'):''}${config.calendarEnabled?widgetShell('calendar',config.calendarTitle||'Calendar',config.calendarTimezone||'UTC'):''}${config.githubEnabled?widgetShell('github','GitHub contributions','@'+config.githubUsername):''}${config.obsidianEnabled?widgetShell('obsidian','Your connected thoughts','Obsidian graph'):''}`;
   placeWidgets();
+  if(config.lastmediaEnabled!==false)loadWidget('lastmedia',key);
   if(config.calendarEnabled)loadWidget('calendar',key);
   if(config.githubEnabled)loadWidget('github',key);
   if(config.obsidianEnabled)loadWidget('obsidian',key);
 }
 function widgetShell(id,title,subtitle){return `<details class="timeline-widget" id="${id}-widget" open><summary><div><h2>${escape(title)}</h2><span>${escape(subtitle)}</span></div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m8 10 4 4 4-4"/></svg></summary><div class="widget-content" id="${id}-widget-content"><p class="widget-state">${loadingMessage(id)}</p></div></details>`}
-const loadingMessage=id=>id==='github'?'Fetching public contributions…':id==='calendar'?'Reading your calendar sources…':'Reading local note links…';
+const loadingMessage=id=>id==='lastmedia'?'Reading your Log…':id==='github'?'Fetching public contributions…':id==='calendar'?'Reading your calendar sources…':'Reading local note links…';
 async function loadWidget(id,key,refresh=false){
   const target=document.querySelector('#'+id+'-widget-content');if(!target)return;
   target.innerHTML='<p class="widget-state">'+loadingMessage(id)+'</p>';
@@ -37,7 +39,7 @@ async function loadWidget(id,key,refresh=false){
     if(key!==activeKey)return;
     if(!response.ok)throw new Error(data.error||'Widget unavailable. Try again.');
     if(data.disabled){target.innerHTML='<p class="widget-state">Disabled in Settings.</p>';return}
-    if(id==='github')renderGithub(target,data);else if(id==='calendar')renderCalendar(target,data);else renderGraph(target,data);
+    if(id==='lastmedia')renderLastMedia(target,data);else if(id==='github')renderGithub(target,data);else if(id==='calendar')renderCalendar(target,data);else renderGraph(target,data);
   }catch(error){if(key===activeKey)target.innerHTML=`<p class="widget-state">${escape(error.message)}</p><button type="button" class="text-button" data-refresh-widget="${id}">Try again</button>`}
 }
 function renderGithub(root,data){
@@ -87,3 +89,11 @@ function renderGooglePlaceholder(slot,google){
   };
 }
 document.addEventListener('click',e=>{const button=e.target.closest('[data-refresh-widget]');if(button&&configuration)loadWidget(button.dataset.refreshWidget,activeKey,true)});
+
+function renderLastMedia(root,data){
+  const entry=data.entry;
+  root.innerHTML=entry?`<a class="latest-media" href="#library">${entry.cover_link?'<img src="'+escape(entry.cover_link)+'" alt="" loading="lazy" referrerpolicy="no-referrer">':''}<p>You last ${escape(entry.verb)} <strong>${escape(entry.title)}</strong> on <time>${escape(formatMediaDate(entry.date))}</time>.</p></a>`:'<p class="widget-state">Add a dated entry to your <a href="#library">Log</a> to see it here.</p>';
+}
+document.addEventListener('media-log-changed',()=>{if(configuration?.lastmediaEnabled!==false)loadWidget('lastmedia',activeKey);});
+
+document.addEventListener('phi-view-changed',event=>{if(event.detail==='timeline'&&configuration?.lastmediaEnabled!==false)loadWidget('lastmedia',activeKey);});

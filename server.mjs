@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {latestMediaEntry} from './public/media-sort.js';
 import { createMediaStore, validMedia } from './media.mjs';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, readFileSync, existsSync } from 'node:fs';
@@ -18,7 +19,7 @@ db.exec('CREATE TABLE IF NOT EXISTS widget_cache (key TEXT PRIMARY KEY, value TE
 const mediaStore=createMediaStore(db);
 const defaults = { appName: 'Phi', name: 'Your name', greetingName: 'there', handle: 'username', bio: '', location: '', website: '', avatar: '', banner: '', theme: 'dark', units: 'celsius', weatherEnabled: false, introEnabled: true, joined: new Date().toISOString() };
 if (!db.prepare('SELECT id FROM config').get()) db.prepare('INSERT INTO config VALUES (1, ?)').run(JSON.stringify(defaults));
-const widgetDefaults={githubPlacement:'timeline',obsidianPlacement:'timeline',calendarPlacement:'timeline',githubEnabled:false,githubUsername:'',obsidianEnabled:false,obsidianVault:'',calendarEnabled:false,calendarSources:[],calendarTitle:'Calendar',calendarTimezone:'UTC'};
+const widgetDefaults={lastmediaEnabled:true,lastmediaPlacement:'timeline',githubPlacement:'timeline',obsidianPlacement:'timeline',calendarPlacement:'timeline',githubEnabled:false,githubUsername:'',obsidianEnabled:false,obsidianVault:'',calendarEnabled:false,calendarSources:[],calendarTitle:'Calendar',calendarTimezone:'UTC'};
 const config = () => ({ ...defaults, ...widgetDefaults, ...JSON.parse(db.prepare('SELECT value FROM config WHERE id=1').get().value) });
 const posts = () => db.prepare('SELECT value FROM posts').all().map(r => JSON.parse(r.value)).sort((a,b) => b.datetime.localeCompare(a.datetime));
 function check(ok, message) { if (!ok) throw Object.assign(new Error(message), { status: 400 }); }
@@ -35,11 +36,12 @@ function validConfig(c) {
   check(result.name && result.greetingName && result.appName, 'App, profile, and greeting names are required.');
   check(/^[a-zA-Z0-9_]+$/.test(result.handle), 'Handle can contain letters, numbers, and underscores.');
   check(!result.website || /^https?:\/\//i.test(result.website), 'Website must start with https:// or http://.');
-  for (const id of ['github','obsidian','calendar']) {
+  for (const id of ['github','obsidian','calendar','lastmedia']) {
     const key=id+'Placement';
     result[key]=c[key]??'timeline';
     check(['timeline','sidebar'].includes(result[key]), 'Choose timeline or right sidebar for widget placement.');
   }
+  result.lastmediaEnabled=c.lastmediaEnabled!==false;
   const githubUsername=str(c.githubUsername||'',39,'GitHub username');
   check(!githubUsername||/^[a-z\d](?:[a-z\d-]{0,37}[a-z\d])?$/i.test(githubUsername),'Enter a valid GitHub username.');
   const obsidianVault=str(c.obsidianVault||'',1000,'Vault path');
@@ -115,6 +117,7 @@ export const server = http.createServer(async (req, res) => {
       const c=config();if(!c.obsidianEnabled)return send(200,{disabled:true});
       try{if(!graphPending||graphPending.path!==c.obsidianVault){const promise=readVaultGraph(c.obsidianVault);graphPending={path:c.obsidianVault,promise};promise.finally(()=>{if(graphPending?.promise===promise)graphPending=null}).catch(()=>{})}return send(200,await graphPending.promise)}catch(e){return send(400,{error:e.message})}
     }
+    if(url.pathname==='/api/lastmedia'&&req.method==='GET'){return send(200,config().lastmediaEnabled?{entry:latestMediaEntry(mediaStore.list())}:{disabled:true});}
     if(url.pathname==='/api/media'&&req.method==='GET')return send(200,mediaStore.list());
     if(url.pathname==='/api/media'&&req.method==='POST')return send(201,mediaStore.save(await body(req)));
     const mediaMatch=url.pathname.match(/^\/api\/media\/([a-f0-9-]+)$/);

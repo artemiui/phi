@@ -1,5 +1,6 @@
+import {mediaTypeIcon} from './media-icons.js';
 import {ratingControl,bindRating,setRating} from './media-rating.js';
-import {sortMedia} from './media-sort.js';
+import {sortMedia,formatMediaDate} from './media-sort.js';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const types=['movie','anime','game','manga','light novel','book','other'];
 const fields={title:'Title',cover_link:'Cover URL',started:'Started · DD-MM-YYYY',completed:'Completed · DD-MM-YYYY',director:'Director / creator',released:'Release year',genre:'Genre',format:'Format',eps:'Episodes / chapters','total episodes':'Total episodes / chapters',body:'Notes'};
@@ -26,7 +27,7 @@ function draw(){
 }
 function results(){
   const list=sortMedia(entries.filter(e=>(!type||e.type===type)&&(!rating||Number(e.rating)>=Number(rating))&&`${e.title} ${e.body||''}`.toLowerCase().includes(search.toLowerCase())),sort);
-  root.querySelector('.media-log-results').innerHTML=`<p class="media-log-count">${list.length} ${list.length===1?'entry':'entries'}</p>${list.length?`<div class="media-log-grid">${list.map(e=>`<button class="media-log-card" data-media-id="${escape(e.id)}">${e.cover_link?`<img src="${escape(e.cover_link)}" loading="lazy" referrerpolicy="no-referrer" alt="Cover of ${escape(e.title)}">`:'<span class="media-cover-placeholder" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 3h16v18H4ZM8 8h8M8 12h8M8 16h5"/></svg></span>'}<span class="media-log-title">${escape(e.title)}</span><small>${escape(e.type)}${e.rating?' · '+stars(Number(e.rating)):''}</small><small>${escape(e.completed||e.started||'')}</small></button>`).join('')}</div>`:'<p class="media-intro">No entries yet. Add something you watched, read, or played.</p>'}`;
+  root.querySelector('.media-log-results').innerHTML=`<p class="media-log-count">${list.length} ${list.length===1?'entry':'entries'}</p>${list.length?`<div class="media-log-grid">${list.map(e=>`<button class="media-log-card" data-media-id="${escape(e.id)}">${e.cover_link?`<img src="${escape(e.cover_link)}" loading="lazy" referrerpolicy="no-referrer" alt="Cover of ${escape(e.title)}">`:'<span class="media-cover-placeholder" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 3h16v18H4ZM8 8h8M8 12h8M8 16h5"/></svg></span>'}<span class="media-log-title">${escape(e.title)}</span><small class="media-card-meta">${mediaTypeIcon(e.type)}${e.rating?stars(Number(e.rating)):''}</small><small>${escape(formatMediaDate(e.completed||e.started||''))}</small></button>`).join('')}</div>`:'<p class="media-intro">No entries yet. Add something you watched, read, or played.</p>'}`;
   for(const card of root.querySelectorAll('[data-media-id]'))card.onclick=()=>open(entries.find(e=>e.id===card.dataset.mediaId));
 }
 function open(entry=null){
@@ -38,7 +39,7 @@ function open(entry=null){
 }
 async function save(event){
   event.preventDefault();const form=event.target,button=form.querySelector('[type=submit]');button.disabled=true;
-  try{const values={...editing,...Object.fromEntries(new FormData(form))};delete values.id;await request('/api/media'+(editing?'/'+editing.id:''),editing?'PUT':'POST',values);root.querySelector('dialog').close();entries=await request('/api/media');results();notify('Media entry saved.');}catch(error){notify(error.message,true);}finally{button.disabled=false;}
+  try{const values={...editing,...Object.fromEntries(new FormData(form))};delete values.id;await request('/api/media'+(editing?'/'+editing.id:''),editing?'PUT':'POST',values);root.querySelector('dialog').close();entries=await request('/api/media');results();document.dispatchEvent(new Event('media-log-changed'));notify('Media entry saved.');}catch(error){notify(error.message,true);}finally{button.disabled=false;}
 }
 async function remove(){
   if(!editing||!confirm(`Delete “${editing.title}” from your media log?`))return;

@@ -43,8 +43,11 @@ test('SQLite timeline, validation, backups, and local request boundaries', async
     assert.equal((await request('/api/config','PUT',{...initial,githubEnabled:true,githubUsername:'bad/username'})).status,400);
     assert.equal((await request('/api/config','PUT',{...initial,obsidianEnabled:true,obsidianVault:'relative/path'})).status,400);
     assert.deepEqual((await request('/api/media')).value,[]);
+    assert.equal((await request('/api/lastmedia')).value.entry,null);
     const mediaEntry=(await request('/api/media','POST',{title:'Sample book',type:'book',rating:'4.0',started:'03-11-2026'})).value;
     assert.ok(mediaEntry.id);
+    assert.equal((await request('/api/lastmedia')).value.entry.title,'Sample book');
+    assert.equal((await request('/api/lastmedia')).value.entry.verb,'read');
     assert.equal((await request('/api/media/'+mediaEntry.id,'PUT',{...mediaEntry,body:'Reading notes'})).value.body,'Reading notes');
     assert.equal((await request('/api/media','POST',{title:'Bad date',type:'movie',completed:'31-02-2026'})).status,400);
     const mediaBackup=(await request('/api/export')).value;

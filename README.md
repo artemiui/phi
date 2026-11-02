@@ -4,9 +4,11 @@ A local personal timeline with text, photos, math, calendars, GitHub contributio
 
 ## Previews
 
-![Timeline](docs/screenshots/timeline.jpg)
+Screenshots show my personal setup. Blog sharing is a private customization.
 
-![Log with example entries](docs/screenshots/media-log.jpg)
+| Timeline | Log |
+| --- | --- |
+| ![Personal timeline](docs/screenshots/timeline.jpg) | ![Personal Log](docs/screenshots/media-log.jpg) |
 
 ## Setup
 

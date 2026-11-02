@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#101112"><title>Phi — your own little world</title><link rel="icon" href="/mark.svg" type="image/svg+xml"><link rel="stylesheet" href="/vendor/katex/katex.min.css"><link rel="stylesheet" href="/style.css"><script src="/app.js" type="module"></script></head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div id="intro" class="intro" role="dialog" aria-modal="true" aria-label="Welcome" hidden>
+  <div class="intro-orbit" aria-hidden="true"><div></div></div>
+  <div class="intro-horizon" aria-hidden="true"></div>
+  <div class="intro-copy"><h1 id="intro-greeting"></h1><p id="intro-weather">A little space to call your own.</p><button id="enter-app" class="pill">Make yourself at home <span aria-hidden="true">↗</span></button></div>
+  <span class="intro-bottom">YOUR THOUGHTS. YOUR SPACE.</span>
+</div>
+<div class="app-shell">
+  <aside class="sidebar">
+    <a class="brand" href="#timeline" aria-label="Phi home"><svg class="brand-mark" viewBox="0 0 36 40" fill="none" stroke="currentColor" stroke-width="3.5" aria-hidden="true"><path d="M18 2v36M18 9C.5 9 .5 31 18 31S35.5 9 18 9Z"/></svg><span data-app-name>Phi</span></a>
+    <nav aria-label="Main navigation" id="nav"></nav>
+    <button class="primary new-post" id="new-post"></button>
+    <div class="sidebar-bottom"><div class="local-status"><span class="status-dot"></span> A world of your own<span>Your timeline lives on this device.</span></div><button class="account" id="account"></button></div>
+  </aside>
+  <main id="main" tabindex="-1">
+    <header class="topbar"><div><h1 id="page-title">Timeline</h1><span id="page-subtitle" hidden></span></div><button id="theme-toggle" class="icon-button" aria-label="Switch to light mode" title="Switch to light mode"></button></header>
+    <div id="timeline-view">
+      <section class="greeting-banner"><div class="greeting-content"><div class="date-line" id="today-date"></div><h2 id="daily-greeting"></h2><p>Your thoughts have a home here.</p></div><div class="eclipse" aria-hidden="true"></div></section>
+      <form id="composer" class="composer">
+        <div class="compose-body"><div id="compose-avatar"></div><label class="sr-only" for="post-content">Your post</label><textarea id="post-content" placeholder="What’s on your mind?" maxlength="5000" rows="3"></textarea></div>
+        <div id="compose-embeds" class="compose-embeds" aria-live="polite"></div>
+        <div class="math-preview" id="math-preview" hidden><span>Math preview</span><div id="math-preview-content"></div></div>
+        <div id="compose-images" class="image-previews"></div>
+        <div class="compose-details" id="compose-details" hidden><label>Location<input id="post-location" maxlength="150" placeholder="Somewhere worth remembering"></label><label>Date & time<input id="post-datetime" type="datetime-local" required></label><label class="alt-field">Image description<input id="post-alt" maxlength="500" placeholder="Describe your images for accessibility"></label></div>
+        <div class="compose-toolbar"><div class="tools"><button type="button" class="icon-button" id="add-images" title="Add photos" aria-label="Add photos"></button><button type="button" class="icon-button" id="add-location" title="Add location" aria-label="Add location"></button><button type="button" class="icon-button" id="add-date" title="Set date and time" aria-label="Set date and time"></button><span class="toolbar-divider"></span><span class="only-you" id="privacy-note"></span></div><div class="compose-submit"><span id="character-count">0 / 5,000</span><button type="submit" class="primary" id="post-submit">Post <span aria-hidden="true">↗</span></button></div></div>
+        <input id="image-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden>
+      </form>
+      <section id="timeline-widgets" class="timeline-widgets" aria-label="Timeline widgets" hidden></section>
+      <div class="feed-heading"><div class="feed-tabs" aria-label="Filter timeline"><button class="active" data-filter="all">All posts <span id="post-count">0</span></button><button data-filter="media">With media</button></div><button class="icon-button" id="date-filter-button" aria-label="Filter by date" title="Filter by date"></button></div>
+      <div class="date-filter" id="date-filter" hidden><label>Show posts from <input type="date" id="filter-date"></label><button class="text-button" id="clear-date">Clear</button></div>
+      <div id="feed"></div>
+    </div>
+    <div id="profile-view" hidden></div>
+    <div id="media-view" hidden></div>
+    <div id="settings-view" hidden></div>
+    <footer class="main-footer"><span class="mini-mark">φ</span></footer>
+  </main>
+  <aside class="rightbar">
+    <label class="search-box"><span id="search-icon"></span><input id="search" type="search" placeholder="Search your world" aria-label="Search your posts"><kbd>/</kbd></label>
+    <section class="profile-panel" id="profile-card"></section>
+    <section id="sidebar-widgets" class="sidebar-widgets" aria-label="Sidebar widgets" hidden></section>
+    <section class="weather-panel"><div class="section-heading"><h2>Around you</h2><span id="weather-icon"></span></div><div id="weather-content"></div></section>
+  </aside>
+</div>
+<dialog id="edit-dialog"><form id="edit-form"><div class="dialog-heading"><h2>Edit post</h2><button type="button" class="icon-button close-dialog" aria-label="Close">×</button></div><label>Your words<textarea id="edit-content" maxlength="5000" rows="5"></textarea></label><label>Location<input id="edit-location" maxlength="150"></label><label>Date & time<input type="datetime-local" id="edit-datetime" required></label><label>Image description<input id="edit-alt" maxlength="500"></label><p class="muted">Attached images are kept. To replace them, create a new post.</p><button class="primary" type="submit">Save changes</button></form></dialog>
+<dialog id="lightbox" aria-label="Photo viewer"><button class="icon-button close-dialog" aria-label="Close image">×</button><img id="lightbox-image" alt=""></dialog>
+<dialog id="confirm-dialog"><form method="dialog"><h2 id="confirm-title">Delete this post?</h2><p id="confirm-message">This removes the post and its images from your timeline.</p><div class="dialog-actions"><button class="secondary" value="cancel">Cancel</button><button class="primary danger" value="confirm">Delete post</button></div></form></dialog>
+<div class="notice" role="status" id="notice" hidden></div>
+</body></html>

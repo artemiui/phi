@@ -1,0 +1,72 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { spawn } from 'node:child_process';
+import http from 'node:http';
+
+test('SQLite timeline, validation, backups, and local request boundaries', async () => {
+  const directory=mkdtempSync(path.join(tmpdir(),'phi-test-'));
+  let child;
+  async function start(){
+    child=spawn(process.execPath,['server.mjs'],{cwd:process.cwd(),env:{...process.env,PORT:'3009',PHI_DATA_DIR:directory},stdio:['ignore','pipe','pipe']});
+    await new Promise((resolve,reject)=>{child.stdout.on('data',d=>{if(d.toString().includes('Phi is ready'))resolve()});child.once('error',reject);child.once('exit',code=>reject(new Error('Server stopped: '+code)));setTimeout(()=>reject(new Error('Server startup timed out')),10000).unref()});
+  }
+  async function stop(){if(!child||child.exitCode!==null)return;await new Promise(resolve=>{child.once('exit',resolve);child.kill()})}
+  const request=async(route,method='GET',data,headers={})=>{const response=await fetch('http://localhost:3009'+route,{method,headers:{'Content-Type':'application/json',...headers},body:data===undefined?undefined:JSON.stringify(data)});return {status:response.status,value:await response.json()}};
+  try {
+    await start();
+    let r=await request('/api/state');assert.equal(r.status,200);assert.equal(r.value.config.name,'Your name');assert.equal(r.value.posts.length,0);
+    const initial=r.value.config;
+    for(const id of ['calendar','github','obsidian'])assert.equal(initial[id+'Placement'],'timeline');
+    assert.equal((await request('/api/config','PUT',{...initial,githubPlacement:'invalid'})).status,400);
+    const placement={githubPlacement:'sidebar',obsidianPlacement:'sidebar',calendarPlacement:'sidebar'};
+    r=await request('/api/config','PUT',{...initial,...placement});
+    assert.equal(r.status,200);
+    await stop();await start();
+    for(const [key,value] of Object.entries(placement))assert.equal((await request('/api/state')).value.config[key],value);
+    const placementBackup=(await request('/api/export')).value;
+    await request('/api/config','PUT',initial);
+    assert.equal((await request('/api/import','POST',placementBackup)).status,200);
+    for(const [key,value] of Object.entries(placement))assert.equal((await request('/api/state')).value.config[key],value);
+    await request('/api/config','PUT',initial);
+    assert.equal((await request('/api/github')).value.disabled,true);
+    assert.equal((await request('/api/obsidian-graph')).value.disabled,true);
+    assert.equal((await request('/api/calendar')).value.disabled,true);
+    assert.equal((await request('/api/config','PUT',{...initial,calendarEnabled:true,calendarSources:[]})).status,400);
+    assert.equal((await request('/api/config','PUT',{...initial,calendarTimezone:'not/a/time-zone'})).status,400);
+    let calendarConfig={...initial,calendarEnabled:true,calendarSources:['https://calendar.google.com/calendar/embed?src=one%40example.com','https://calendar.google.com/calendar/embed?src=two%40example.com'],calendarTimezone:'Asia/Manila'};
+    assert.equal((await request('/api/config','PUT',calendarConfig)).status,200);
+    const calendar=(await request('/api/calendar')).value;assert.equal(calendar.google.count,2);assert.equal(calendar.timeZone,'Asia/Manila');assert.deepEqual(calendar.events,[]);
+    await request('/api/config','PUT',initial);
+    assert.equal((await request('/api/config','PUT',{...initial,githubEnabled:true,githubUsername:'bad/username'})).status,400);
+    assert.equal((await request('/api/config','PUT',{...initial,obsidianEnabled:true,obsidianVault:'relative/path'})).status,400);
+    const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jhS8AAAAASUVORK5CYII=';
+    const p={content:'A first thought <script>alert(1)</script>',images:[png],alt:'A tiny white pixel',location:'At home',datetime:'2026-11-02T10:00:00+08:00'};
+    r=await request('/api/posts','POST',p);assert.equal(r.status,201);const id=r.value.id;assert.equal(r.value.datetime,'2026-11-02T02:00:00.000Z');
+    assert.equal((await request('/api/posts','POST',{...p,content:'',images:[]})).status,400);
+    assert.equal((await request('/api/posts','POST',{...p,datetime:'invalid'})).status,400);
+    assert.equal((await request('/api/posts','POST',{...p,images:['data:image/svg+xml;base64,AA==']})).status,400);
+    assert.equal((await request('/api/config','PUT',{...initial,website:'javascript:alert(1)'})).status,400);
+    assert.equal((await request('/api/config','PUT',{...initial,handle:'bad handle'})).status,400);
+    r=await request('/api/posts/'+id,'PUT',{...p,content:'Updated moment'});assert.equal(r.value.content,'Updated moment');
+    r=await request('/api/config','PUT',{...initial,name:'Test User',greetingName:'Tester',theme:'light'});assert.equal(r.status,200);
+    await stop();await start();r=await request('/api/state');assert.equal(r.value.config.greetingName,'Tester');assert.equal(r.value.posts[0].images[0],png);assert.equal(r.value.posts[0].content,'Updated moment');
+    const backup=(await request('/api/export')).value;assert.equal(backup.version,1);
+    assert.equal((await request('/api/import','POST',{...backup,posts:[{...p,datetime:'invalid'}]})).status,400);
+    assert.equal((await request('/api/state')).value.posts.length,1);
+    assert.equal((await request('/api/posts/'+id,'DELETE')).status,200);
+    assert.equal((await request('/api/state')).value.posts.length,0);
+    assert.equal((await request('/api/import','POST',backup)).status,200);
+    assert.equal((await request('/api/state')).value.posts[0].content,'Updated moment');
+    assert.equal((await request('/api/state','GET',undefined,{Origin:'https://untrusted.example'})).status,403);
+    const rejectedHost=await new Promise((resolve,reject)=>{http.get('http://127.0.0.1:3009/api/state',{headers:{Host:'untrusted.example:3009'}},res=>{res.resume();resolve(res.statusCode)}).on('error',reject)});
+    assert.equal(rejectedHost,403);
+    assert.equal((await request('/server.mjs')).status,404);
+    assert.equal((await request('/data/phi.sqlite')).status,404);
+    const home=await fetch('http://localhost:3009/');assert.equal(home.status,200);assert.match(home.headers.get('content-security-policy'),/frame-ancestors 'none'/);
+    assert.match(home.headers.get('content-security-policy'),/frame-src https:\/\/www.youtube-nocookie.com https:\/\/open.spotify.com/);
+    assert.equal((await fetch('http://localhost:3009/vendor/katex/contrib/auto-render.mjs')).headers.get('content-type'),'text/javascript');
+  } finally {await stop();rmSync(directory,{recursive:true,force:true})}
+});

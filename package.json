@@ -1,0 +1,21 @@
+{
+  "name": "phi-local",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A private, self-hosted personal timeline.",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs",
+    "test": "node --test",
+    "postinstall": "node scripts/vendor-katex.mjs"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "katex": "0.19.1",
+    "node-ical": "0.27.3"
+  }
+}

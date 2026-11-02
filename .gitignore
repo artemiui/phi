@@ -1,0 +1,14 @@
+data/
+node_modules/
+*.log
+.env
+.test-data-*/
+public/vendor/
+previews/
+github-contributions-sample.html
+
+.env.*
+*.sqlite
+*.sqlite-*
+backups/
+phi-backup*.json

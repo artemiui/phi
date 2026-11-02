@@ -1,0 +1,11 @@
+import { cp, mkdir } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const source=path.join(root,'node_modules/katex');
+const target=path.join(root,'public/vendor/katex');
+await mkdir(path.join(target,'contrib'),{recursive:true});
+for(const name of ['katex.mjs','katex.min.css','fonts'])await cp(path.join(source,'dist',name),path.join(target,name),{recursive:true});
+await cp(path.join(source,'dist/contrib/auto-render.mjs'),path.join(target,'contrib/auto-render.mjs'));
+await cp(path.join(source,'LICENSE'),path.join(target,'LICENSE'));
+console.log('KaTeX and its fonts are ready for offline use.');

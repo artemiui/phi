@@ -8,7 +8,7 @@ Screenshots show my personal setup. Blog sharing is a private customization.
 
 | Timeline | Log |
 | --- | --- |
-| ![Personal timeline](docs/screenshots/timeline.jpg) | ![Personal Log](docs/screenshots/media-log.jpg) |
+| ![Personal timeline](docs/screenshots/personal-timeline.jpg) | ![Personal Log](docs/screenshots/personal-log.jpg) |
 
 ## Setup
 

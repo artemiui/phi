@@ -1,0 +1,32 @@
+@supports (appearance:base-select){
+  select,select::picker(select){appearance:base-select}
+  select::picker-icon{color:var(--muted);transition:rotate 160ms var(--ease-out)}
+  select:open::picker-icon{rotate:180deg}
+  select::picker(select){
+    background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:5px;margin-block:5px;
+    max-height:min(360px,50dvh);overflow:auto;overscroll-behavior:contain;
+    opacity:0;transform:translateY(-4px) scale(.98);transform-origin:top center;
+    transition:opacity 130ms ease,transform 160ms var(--ease-out),display 160ms allow-discrete,overlay 160ms allow-discrete;
+  }
+  select::picker(select):popover-open{opacity:1;transform:translateY(0) scale(1)}
+  @starting-style{select::picker(select):popover-open{opacity:0;transform:translateY(-4px) scale(.98)}}
+  select option{padding:9px 11px;min-height:36px;border-radius:6px;cursor:pointer;font-size:12px}
+  select option:checked,select option:hover,select option:focus-visible{background:var(--panel-hover);color:var(--text)}
+  select option::checkmark{margin-inline-end:7px}
+}
+@supports (interpolate-size:allow-keywords){
+  :is(.timeline-widget,.graph-note-list){interpolate-size:allow-keywords}
+  :is(.timeline-widget,.graph-note-list)::details-content{
+    height:0;opacity:0;overflow:clip;
+    transition:height 180ms var(--ease-out),opacity 140ms ease,content-visibility 180ms allow-discrete;
+  }
+  :is(.timeline-widget,.graph-note-list)[open]::details-content{height:auto;opacity:1}
+}
+.timeline-widget>summary>svg{transition:transform 160ms var(--ease-out)}
+.keyboard-navigation select::picker(select),.keyboard-navigation select::picker-icon,
+.keyboard-navigation :is(.timeline-widget,.graph-note-list)::details-content,
+.keyboard-navigation .timeline-widget>summary>svg{transition:none}
+@media(prefers-reduced-motion:reduce){
+  select::picker(select),select::picker-icon,:is(.timeline-widget,.graph-note-list)::details-content,
+  .timeline-widget>summary>svg{transition:none;transform:none}
+}

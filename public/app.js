@@ -1,3 +1,4 @@
+import { renderMediaLog } from './media-log.js';
 import { renderMath, hasMath } from './math.js';
 import { configureWidgets } from './widgets.js';
 import { embedsInText, linksInText, parseEmbed } from './embeds.js';
@@ -61,7 +62,7 @@ async function reload(){state=await api('/api/state');render()}
 function render(){
  const c=state.config;applyTheme(c.theme);document.title=`${c.appName} — your own little world`;
  $$('[data-app-name]').forEach(el=>el.textContent=c.appName);
- $('#nav').innerHTML=[['timeline','home','Timeline'],['profile','user','Profile'],['media','image','Media'],['settings','sliders','Settings']].map(([id,i,title])=>`<a href="#${id}" aria-label="${title}" class="${view===id?'active':''}" ${view===id?'aria-current="page"':''}>${icon(i)}<span>${title}</span></a>`).join('');
+ $('#nav').innerHTML=[['timeline','home','Timeline'],['profile','user','Profile'],['media','image','Media'],['library','leaf','Log'],['settings','sliders','Settings']].map(([id,i,title])=>`<a href="#${id}" aria-label="${title}" class="${view===id?'active':''}" ${view===id?'aria-current="page"':''}>${icon(i)}<span>${title}</span></a>`).join('');
  $('#new-post').innerHTML=icon('pen')+'<span>New post</span>';$('#account').innerHTML=avatar()+`<span class="account-text"><strong>${escape(c.name)}</strong><small>@${escape(c.handle)}</small></span>`+icon('sliders');
  $('#compose-avatar').innerHTML=avatar();$('#post-content').placeholder=`What’s on your mind, ${c.greetingName}?`;
  $('#daily-greeting').textContent=greeting();$('#today-date').textContent=new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});
@@ -71,13 +72,13 @@ function render(){
  renderProfileCard();renderFeed();renderWeather();showView(view,false);configureWidgets(c);
 }
 function showView(next,focus=true){
- view=['timeline','profile','media','settings'].includes(next)?next:'timeline';
- ['timeline','profile','media','settings'].forEach(v=>$('#'+v+'-view').hidden=v!==view);
+ view=['timeline','profile','media','library','settings'].includes(next)?next:'timeline';
+ ['timeline','profile','media','library','settings'].forEach(v=>$('#'+v+'-view').hidden=v!==view);
  $$('#nav a').forEach(a=>{const active=a.hash==='#'+view;a.classList.toggle('active',active);active?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current')});
- $('#page-title').textContent={timeline:'Timeline',profile:'Your profile',media:'Media',settings:'Settings'}[view];
- $('#page-subtitle').textContent={timeline:'A little more you. A little less noise.',profile:'',media:'Life, through your lens.',settings:'Make this space your own.'}[view];
- $('#page-subtitle').hidden=view==='timeline'||view==='profile';
- if(view==='profile')renderProfile();if(view==='media')renderMedia();if(view==='settings')renderSettings();
+ $('#page-title').textContent={timeline:'Timeline',profile:'Your profile',media:'Media',library:'Log',settings:'Settings'}[view];
+ $('#page-subtitle').textContent={timeline:'A little more you. A little less noise.',profile:'',media:'Life, through your lens.',library:'',settings:'Make this space your own.'}[view];
+ $('#page-subtitle').hidden=view==='timeline'||view==='profile'||view==='library';
+ if(view==='profile')renderProfile();if(view==='media')renderMedia();if(view==='settings')renderSettings();if(view==='library')renderMediaLog($('#library-view'),notice);
  if(focus){window.scrollTo({top:0,behavior:'instant'});$('#main').focus({preventScroll:true})}
 }
 function renderProfileCard(){const c=state.config;$('#profile-card').innerHTML=`<div class="mini-banner">${c.banner?`<img src="${c.banner}" alt="">`:''}</div><div class="profile-mini-head">${avatar()}<a href="#profile">View profile ↗</a></div><h3>${escape(c.name)}</h3><span class="handle">@${escape(c.handle)}</span><p>${escape(c.bio)}</p><div class="profile-mini-stats"><span><b>${state.posts.length}</b>posts</span><span><b>${state.posts.reduce((n,p)=>n+p.images.length,0)}</b>photos</span></div>`}

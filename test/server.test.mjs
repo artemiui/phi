@@ -42,6 +42,17 @@ test('SQLite timeline, validation, backups, and local request boundaries', async
     await request('/api/config','PUT',initial);
     assert.equal((await request('/api/config','PUT',{...initial,githubEnabled:true,githubUsername:'bad/username'})).status,400);
     assert.equal((await request('/api/config','PUT',{...initial,obsidianEnabled:true,obsidianVault:'relative/path'})).status,400);
+    assert.deepEqual((await request('/api/media')).value,[]);
+    const mediaEntry=(await request('/api/media','POST',{title:'Sample book',type:'book',rating:'4.0',started:'03-11-2026'})).value;
+    assert.ok(mediaEntry.id);
+    assert.equal((await request('/api/media/'+mediaEntry.id,'PUT',{...mediaEntry,body:'Reading notes'})).value.body,'Reading notes');
+    assert.equal((await request('/api/media','POST',{title:'Bad date',type:'movie',completed:'31-02-2026'})).status,400);
+    const mediaBackup=(await request('/api/export')).value;
+    assert.equal(mediaBackup.media.length,1);
+    await request('/api/media/'+mediaEntry.id,'DELETE');
+    assert.equal((await request('/api/import','POST',mediaBackup)).status,200);
+    assert.equal((await request('/api/media')).value[0].title,'Sample book');
+    await request('/api/config','PUT',initial);
     const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jhS8AAAAASUVORK5CYII=';
     const p={content:'A first thought <script>alert(1)</script>',images:[png],alt:'A tiny white pixel',location:'At home',datetime:'2026-11-02T10:00:00+08:00'};
     r=await request('/api/posts','POST',p);assert.equal(r.status,201);const id=r.value.id;assert.equal(r.value.datetime,'2026-11-02T02:00:00.000Z');

@@ -12,3 +12,6 @@ github-contributions-sample.html
 *.sqlite-*
 backups/
 phi-backup*.json
+
+.personal/
+.preview-data/

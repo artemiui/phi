@@ -2,6 +2,12 @@
 
 A local personal timeline with text, photos, math, calendars, GitHub contributions, and an Obsidian graph.
 
+## Previews
+
+![Timeline](docs/screenshots/timeline.jpg)
+
+![Log with example entries](docs/screenshots/media-log.jpg)
+
 ## Setup
 
 Install Node.js 22.13 or newer, then run:
@@ -18,6 +24,8 @@ Open http://localhost:3000. Refresh the browser after frontend changes. Use `npm
 ## Customize
 
 Open Settings to edit your profile and enable optional widgets. Enter your own GitHub username, Obsidian vault path, or calendar links. Each widget can appear in the timeline or right sidebar. The profile preview stays above sidebar widgets.
+
+The Log stores movies, anime, games, manga, and books in SQLite. Add ratings, dates, covers, and notes, then search or filter entries. Covers load from the URLs you provide.
 
 ## Data
 

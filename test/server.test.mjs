@@ -58,6 +58,10 @@ test('SQLite timeline, validation, backups, and local request boundaries', async
     await request('/api/config','PUT',initial);
     const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jhS8AAAAASUVORK5CYII=';
     const p={content:'A first thought <script>alert(1)</script>',images:[png],alt:'A tiny white pixel',location:'At home',datetime:'2026-11-02T10:00:00+08:00'};
+    const gallery=await request('/api/posts','POST',{...p,images:Array(20).fill(png)});assert.equal(gallery.status,201);
+    assert.equal(gallery.value.images.length,20);
+    assert.equal((await request('/api/posts','POST',{...p,images:Array(21).fill(png)})).status,400);
+    await request('/api/posts/'+gallery.value.id,'DELETE');
     r=await request('/api/posts','POST',p);assert.equal(r.status,201);const id=r.value.id;assert.equal(r.value.datetime,'2026-11-02T02:00:00.000Z');
     assert.equal((await request('/api/posts','POST',{...p,content:'',images:[]})).status,400);
     assert.equal((await request('/api/posts','POST',{...p,datetime:'invalid'})).status,400);

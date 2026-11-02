@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {MAX_POST_IMAGES,MAX_PHOTO_DATA_LENGTH} from './public/photos.js';
 import {latestMediaEntry} from './public/media-sort.js';
 import { createMediaStore, validMedia } from './media.mjs';
 import { DatabaseSync } from 'node:sqlite';
@@ -58,8 +59,8 @@ function validConfig(c) {
 }
 function validPost(p) {
   const content = str(p.content || '', 5000, 'Post');
-  check(Array.isArray(p.images) && p.images.length <= 4, 'Choose up to four images.');
-  const images = p.images.map(image); check(content || images.length, 'Write something or add an image.');
+  check(Array.isArray(p.images) && p.images.length <= MAX_POST_IMAGES, 'Choose up to '+MAX_POST_IMAGES+' photos.');
+  const images = p.images.map(image); check(images.reduce((total,image)=>total+image.length,0)<=MAX_PHOTO_DATA_LENGTH,'Keep the combined photos under 36 MB.'); check(content || images.length, 'Write something or add an image.');
   const datetime = new Date(p.datetime); check(Number.isFinite(datetime.getTime()), 'Choose a valid date and time.');
   return { content, images, location: str(p.location || '', 150, 'Location'), datetime: datetime.toISOString(), alt: str(p.alt || '', 500, 'Image description') };
 }
